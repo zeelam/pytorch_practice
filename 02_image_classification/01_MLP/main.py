@@ -201,7 +201,7 @@ if __name__ == '__main__':
         transforms.ToTensor(),
         transforms.Normalize(mean=[mean], std=[std])
                                     ])
-    test_transforms = test_transforms = torchvision.transforms.Compose([
+    test_transforms = torchvision.transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize(mean=[mean], std=[std])
     ])
