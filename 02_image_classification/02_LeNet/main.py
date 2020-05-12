@@ -80,6 +80,9 @@ def plot_subsample(images, pool_type, pool_size):
 
     plt.show()
 
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 class LeNet(nn.Module):
     def __init__(self, output_dim):
         super().__init__()
@@ -97,10 +100,12 @@ class LeNet(nn.Module):
     # 前向传播
     def forward(self, x):
         x = self.conv1(x)
+        # 使用relu做非线性变换函数
         x = F.relu(F.max_pool2d(x, kernel_size=2))
         x = self.conv2(x)
         x = F.relu(F.max_pool2d(x, kernel_size=2))
         x = x.view(x.shape[0], -1)
+        # 保留在全链接前的参数, 用于展示经过两层卷积层后的图像是怎么样的
         h = x
         x = F.relu(self.fc_1(x))
         x = F.relu(self.fc_2(x))
@@ -202,3 +207,10 @@ if __name__ == '__main__':
     plot_subsample(images, 'avg', 3)
 
     # 使用LeNet来训练
+    OUTPUT_DIM = 10
+    model = LeNet(OUTPUT_DIM)
+
+    print('The model has %s trainable parameters' % format(count_parameters(model), ','))
+
+
+
