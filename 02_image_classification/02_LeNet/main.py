@@ -165,6 +165,30 @@ def get_predictions(model, dataloader, device):
 
     return images, labels, probs
 
+def plot_confusion_matrix(labels, pred_labels):
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(1, 1, 1)
+    cm = confusion_matrix(labels, pred_labels)
+    cm = ConfusionMatrixDisplay(cm, range(10))
+    cm.plot(values_format='d', cmap='Blues', ax=ax)
+
+def get_pca(data, n_components = 2):
+    pca = decomposition.PCA()
+    pca.n_components = n_components
+    pca_data = pca.fit_transform(data)
+    return pca_data
+
+def plot_representations(data, labels, n_images = None):
+    if n_images is not None:
+        data = data[:n_images]
+        labels = labels[:n_images]
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111)
+    scatter = ax.scatter(data[:, 0], data[:, 1], c=labels, cmap='tab10')
+    handles, labels = scatter.legend_elements()
+    legend = ax.legend(handles=handles, labels=labels)
+    plt.show()
+
 class LeNet(nn.Module):
     def __init__(self, output_dim):
         super().__init__()
@@ -305,23 +329,23 @@ if __name__ == '__main__':
     EPOCHS = 20
     best_valid_loss = float('inf')
 
-    for epoch in range(EPOCHS):
-        start_time = time.time()
-
-        train_loss, train_acc = train(model, train_data_loader, optimizer, criterion, device)
-        valid_loss, valid_acc = evaluate(model, valid_data_loader, criterion, device)
-
-        if valid_loss < best_valid_loss:
-            best_valid_loss = valid_loss
-            torch.save(model.state_dict(), 'tut2-model.pt')
-
-        end_time = time.time()
-
-        epoch_mins, epoch_secs = epoch_time(start_time, end_time)
-
-        print("Epoch: %02d | Epoch Time: %dm %ds" % ((epoch + 1), epoch_mins, epoch_secs))
-        print("\tTrain Loss: %.3f | Train Acc: %.2f%%" % (train_loss, train_acc * 100))
-        print("\t Val. Loss: %.3f |  Val. Acc: %.2f%%" % (valid_loss, valid_acc * 100))
+    # for epoch in range(EPOCHS):
+    #     start_time = time.time()
+    #
+    #     train_loss, train_acc = train(model, train_data_loader, optimizer, criterion, device)
+    #     valid_loss, valid_acc = evaluate(model, valid_data_loader, criterion, device)
+    #
+    #     if valid_loss < best_valid_loss:
+    #         best_valid_loss = valid_loss
+    #         torch.save(model.state_dict(), 'tut2-model.pt')
+    #
+    #     end_time = time.time()
+    #
+    #     epoch_mins, epoch_secs = epoch_time(start_time, end_time)
+    #
+    #     print("Epoch: %02d | Epoch Time: %dm %ds" % ((epoch + 1), epoch_mins, epoch_secs))
+    #     print("\tTrain Loss: %.3f | Train Acc: %.2f%%" % (train_loss, train_acc * 100))
+    #     print("\t Val. Loss: %.3f |  Val. Acc: %.2f%%" % (valid_loss, valid_acc * 100))
 
     print("The training is finished")
 
@@ -329,3 +353,6 @@ if __name__ == '__main__':
     test_loss, test_acc = evaluate(model, test_data_loader, criterion, device)
 
     print("Test Loss: %.3f | Test Acc: %.2f%%" % (test_loss, test_acc * 100))
+
+    images, labels, probs = get_predictions(model, train_data_loader, device)
+    
