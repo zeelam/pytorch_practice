@@ -172,6 +172,45 @@ def plot_confusion_matrix(labels, pred_labels):
     cm = ConfusionMatrixDisplay(cm, range(10))
     cm.plot(values_format='d', cmap='Blues', ax=ax)
 
+def plot_most_incorrect(incorrect, n_images):
+    rows = int(np.sqrt(n_images))
+    cols = int(np.sqrt(n_images))
+
+    fig = plt.figure(figsize=(20, 10))
+    for i in range(rows * cols):
+        ax = fig.add_subplot(rows, cols, i + 1)
+        image, true_label, probs = incorrect[i]
+        true_prob = probs[true_label]
+        incorrect_prob, incorrect_label = torch.max(probs, dim=0)
+        ax.imshow(image.view(28, 28).cpu().numpy(), cmap='bone')
+        ax.set_title("true label: %s (%.3f) \n"
+                     "pred label: %s (%.3f)" % (true_label.item(), true_prob, incorrect_label.item(), incorrect_prob))
+        ax.axis('off')
+    fig.subplots_adjust(hspace=0.5)
+    plt.show()
+
+def get_representations(model, data_loader, device):
+    model.eval()
+
+    outputs = []
+    intermediates = []
+    labels = []
+
+    with torch.no_grad():
+        for x, y in data_loader:
+            x = x.to(device)
+            y_pred, h = model(x)
+
+            outputs.append(y_pred.cpu())
+            intermediates.append(h.cpu())
+            labels.append(y)
+
+    outputs = torch.cat(outputs, dim=0)
+    intermediates = torch.cat(intermediates, dim=0)
+    labels = torch.cat(labels, dim=0)
+
+    return outputs, intermediates, labels
+
 def get_pca(data, n_components = 2):
     pca = decomposition.PCA()
     pca.n_components = n_components
@@ -188,6 +227,31 @@ def plot_representations(data, labels, n_images = None):
     handles, labels = scatter.legend_elements()
     legend = ax.legend(handles=handles, labels=labels)
     plt.show()
+
+def get_tsne(data, n_components = 2, n_images = None):
+    if n_images is not None:
+        data = data[:n_images]
+    tsne = manifold.TSNE(n_components=n_components, random_state=0)
+    tsne_data = tsne.fit_transform(data)
+    return tsne_data
+
+def imagine_digit(model, digit, device, n_iterations = 50_000):
+    model.eval()
+
+    best_prob = 0
+    best_image = None
+
+    with torch.no_grad():
+        for _ in range(n_iterations):
+            x = torch.randn(32, 1, 28, 28).to(device)
+            y_pred, _ = model(x)
+            preds = F.softmax(y_pred, dim=-1)
+            _best_prob, index = torch.max(preds[:, digit], dim=0)
+
+            if _best_prob > best_prob:
+                best_prob = _best_prob
+                best_image = x[index]
+    return best_image, best_prob
 
 class LeNet(nn.Module):
     def __init__(self, output_dim):
@@ -354,5 +418,34 @@ if __name__ == '__main__':
 
     print("Test Loss: %.3f | Test Acc: %.2f%%" % (test_loss, test_acc * 100))
 
-    images, labels, probs = get_predictions(model, train_data_loader, device)
-    
+    images, labels, probs = get_predictions(model, test_data_loader, device)
+
+    pred_labels = torch.argmax(probs, 1)
+    plot_confusion_matrix(labels, pred_labels)
+    corrects = torch.eq(labels, pred_labels)
+
+    incorrect_samples = []
+
+    for image, label, prob, correct in zip(images, labels, probs, corrects):
+        if not correct:
+            incorrect_samples.append((image, label, prob))
+    incorrect_samples.sort(reverse=True, key=lambda x: torch.max(x[2], dim=0).values)
+
+    N_IMAGES = 25
+    plot_most_incorrect(incorrect_samples, N_IMAGES)
+
+    outputs, intermediates, labels = get_representations(model, train_data_loader, device)
+    output_pca_data = get_pca(outputs)
+    plot_representations(output_pca_data, labels)
+
+    intermediate_pca_data = get_pca(intermediates)
+    plot_representations(intermediate_pca_data, labels)
+
+    N_IMAGES = 5_000
+
+    output_tsne_data = get_tsne(outputs, n_images=N_IMAGES)
+    plot_representations(output_tsne_data, labels, n_images=N_IMAGES)
+
+    intermediate_tsne_data = get_tsne(intermediates, n_images=N_IMAGES)
+    plot_representations(intermediate_tsne_data, labels, n_images=N_IMAGES)
+
